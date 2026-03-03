@@ -57,6 +57,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_UART5_Init(void);
+static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, uint32_t newBaud);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -109,6 +110,7 @@ int main(void)
     NEOM9N_init(&huart5);
     // Start the Interrupt Listener
     NEOM9N_StartRxIT();
+    GPS_SwitchBaud_Runtime(&huart5, 115200); // only runs once
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -400,8 +402,89 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+// AI (gemini) assisted code //
 
+// UBX 8-bit Fletcher checksum over UBX-CFG-VALSET payload as defied by the datasheet (u-blox, pg. 48)
+static void ubx_checksum(const uint8_t* buffer, uint16_t len, uint8_t* ck_a, uint8_t* ck_b) {
+	uint8_t a = 0, b = 0;
+	for (uint16_t i = 0; i < len; i++) {
+		a = a + buffer[i];
+		b = b + a;
+	}
+	*ck_a = a;
+	*ck_b = b;
+}
+
+// Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (RAM only), then switch STM32 UART5 to match.
+static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, uint32_t newBaud) {
+	/* To change the baud rate of the neom9n, must send a complete UBX packet with required details
+	 * as defied by the datasheet (u-blox, pg. 89-91) */
+
+	// UBX-CFG-VALSET packet for 115200 Baud on UART1
+	uint8_t pkt[20]; // header == 4 bytes, payload == 12 bytes,
+
+	pkt[0] = 0xB5; pkt[1] = 0x62;	// header
+	pkt[2] = 0x06; pkt[3] = 0x8A;	// Class/ID
+	pkt[4] = 0x0C; pkt[5] = 0x00;	// Length of payload (12 bytes: 4 config + 8 key/val)
+
+// --- paylod ---
+	// to save the baud rate change (and any other change made), set byte 1 => 0x07 (save to ram, bbr, and flash layers)
+	// to just test a change but not save, set byte 1 => 0x01 (saves just to ram)
+	pkt[6] = 0x00;       			// Byte 0: set to 0x00 cause datasheet says so
+	pkt[7] = 0x01;      	 		// Byte 1: layers (0x01 = save to RAM only (temp. change for testing purposes))
+	pkt[8] = 0x00; pkt[9] = 0x00;   // Byte 2-3: 0x00 cause gemini said so
+
+	// Key ID for UART1 on neom9n = 0x40520001 -> little endian: 01 00 52 40
+	pkt[10] = 0x01; pkt[11] = 0x00; pkt[12] = 0x52; pkt[13] = 0x40;
+// --- paylod end ---
+
+	// new baud rate in little endian (ai generated)
+	pkt[14] = (uint8_t)(newBaud & 0xFF);
+	pkt[15] = (uint8_t)((newBaud >> 8) & 0xFF);
+	pkt[16] = (uint8_t)((newBaud >> 16) & 0xFF);
+	pkt[17] = (uint8_t)((newBaud >> 24) & 0xFF);
+
+	// Checksum (of the payload -> pkt[2] for class + id + payload_length(2) + payload(12). i.e. 16 bytes)
+	uint8_t ck_a, ck_b;
+	ubx_checksum(&pkt[2], 16, &ck_a, &ck_b);
+	pkt[18] = ck_a;
+	pkt[19] = ck_b;
+
+	// Note: pkt size is 20 bytes actually (2 sync + 2 class/id + 2 len + 12 payload + 2 cksum)
+	// We'll transmit only 20 bytes.
+	const uint16_t pkt_len = 20;
+
+	/* ai generated beneath */
+	// Stop recieving while switching baud rate
+	HAL_UART_AbortReceive(huart_gps);
+	__HAL_UART_DISABLE_IT(huart_gps, UART_IT_RXNE);
+	__HAL_UART_DISABLE_IT(huart_gps, UART_IT_IDLE);
+
+	// Send at CURRENT baud (must match current GPS baud -> default == 38400)
+	if (HAL_UART_Transmit(huart_gps, pkt, pkt_len, 200) != HAL_OK) {
+		return HAL_ERROR;
+	}
+
+	// Give GPS time to switch UART baud
+	HAL_Delay(200);
+
+	// Switch STM32 UART baud to match
+	if (HAL_UART_DeInit(huart_gps) != HAL_OK) {
+		return HAL_ERROR;
+	}
+	huart_gps->Init.BaudRate = newBaud;
+	if (HAL_UART_Init(huart_gps) != HAL_OK) {
+		return HAL_ERROR;
+	}
+
+	// Restart GPS RX-to-idle
+	NEOM9N_StartRxIT();
+
+	return HAL_OK;
+}
 /* USER CODE END 4 */
+
+
 
 /**
   * @brief  This function is executed in case of error occurrence.
