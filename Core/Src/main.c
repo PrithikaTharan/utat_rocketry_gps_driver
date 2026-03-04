@@ -28,17 +28,14 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -52,19 +49,17 @@ unsigned char GPSData[10000] = {0}; // Buffer for GPS data
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
+/* USER CODE BEGIN PFP */
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_UART5_Init(void);
 static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, uint32_t newBaud);
-/* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 // We use Receive-to-IDLE interrupt, so we only need HAL_UARTEx_RxEventCallback.
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   if (huart->Instance == UART5){
@@ -72,6 +67,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
   }
 }
 /* USER CODE END 0 */
+
 
 /**
   * @brief  The application entry point.
@@ -110,8 +106,13 @@ int main(void)
     NEOM9N_init(&huart5);
     // Start the Interrupt Listener
     NEOM9N_StartRxIT();
-    GPS_SwitchBaud_Runtime(&huart5, 115200); // only runs once
-  /* USER CODE END 2 */
+
+    // comment out if not switching gps baud!
+    // save = 0x01 (temp change, i.e. resets back to previously set baud rate with next power cycle).
+    // save = 0x07 (permenant change, i.e. must call this function again to change baud rate)
+    gpsSwitchBaud(&huart5, (uint16_t)115200, /* save */ (uint8_t)0x01);
+
+    /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -120,9 +121,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  // Check if new data has arrived via interrupt
-	  if (NEOM9N_getDataIT(GPSData, sizeof(GPSData)) == HAL_OK)
-	  {
+	// Check if new data has arrived via interrupt
+	if (NEOM9N_getDataIT(GPSData, sizeof(GPSData)) == HAL_OK)
+	{
 		// 1. Print Raw Data to Console (LPUART1)
 		HAL_UART_Transmit(&hlpuart1, GPSData, strlen((char*)GPSData), 100);
 
@@ -148,7 +149,7 @@ int main(void)
 		  sprintf(tx_buff, "Alt: %.2f\r\n", altitude);
 		  HAL_UART_Transmit(&hlpuart1, (uint8_t*)tx_buff, strlen(tx_buff), 100);
 		}
-	  }
+	}
 
   }
   /* USER CODE END 3 */
@@ -160,48 +161,45 @@ int main(void)
   */
 void SystemClock_Config(void)
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Configure the main internal regulator output voltage
+	*/
+	if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 2;
-  RCC_OscInitStruct.PLL.PLLN = 30;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
-  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	/** Initializes the RCC Oscillators according to the specified parameters
+	* in the RCC_OscInitTypeDef structure.
+	*/
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
+	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+	RCC_OscInitStruct.PLL.PLLM = 2;
+	RCC_OscInitStruct.PLL.PLLN = 30;
+	RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
+	RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+	RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+		Error_Handler();
+	}
 
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+	/** Initializes the CPU, AHB and APB buses clocks
+	*/
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+							  |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
-  {
-    Error_Handler();
-  }
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK) {
+		Error_Handler();
+	}
 }
 
 /**
@@ -401,10 +399,10 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_2 */
 }
 
+
 /* USER CODE BEGIN 4 */
 // AI (gemini) assisted code //
-
-// UBX 8-bit Fletcher checksum over UBX-CFG-VALSET payload as defied by the datasheet (u-blox, pg. 48)
+// UBX 8-bit Fletcher checksum over UBX-CFG-VALSET payload as defied by (u-blox, pg. 48)
 static void ubx_checksum(const uint8_t* buffer, uint16_t len, uint8_t* ck_a, uint8_t* ck_b) {
 	uint8_t a = 0, b = 0;
 	for (uint16_t i = 0; i < len; i++) {
@@ -415,10 +413,61 @@ static void ubx_checksum(const uint8_t* buffer, uint16_t len, uint8_t* ck_a, uin
 	*ck_b = b;
 }
 
+// after sending package to gps to change anything, wait to see if checksum was validated and there was no data corruption
+// returns false if checksum failed and packaage rejected
+static bool ubx_wait_ack(UART_HandleTypeDef *huart, uint8_t cls, uint8_t id, uint32_t timeout_ms) {
+	/* completely AI generated */
+	// basically, checking for 1 of 2 possible responses from the gps
+	// - UBX-ACK-ACK (accepted), UBX-ACK-NAK (rejected)
+	uint32_t start = HAL_GetTick();
+	uint8_t b;
+	// Simple state machine for UBX-ACK-ACK: B5 62 05 01 02 00 cls id CK_A CK_B
+	const uint8_t preamble[] = {0xB5, 0x62, 0x05, 0x01, 0x02, 0x00};
+	uint8_t idx = 0;
+	uint8_t payload[2];
+	uint8_t ck_a, ck_b;
+
+	while ((HAL_GetTick() - start) < timeout_ms) {
+		if (HAL_UART_Receive(huart, &b, 1, 10) != HAL_OK) continue;
+
+		// match preamble
+		if (idx < sizeof(preamble)) {
+		  if (b == preamble[idx]) {
+			idx++;
+		  } else {
+			idx = (b == preamble[0]) ? 1 : 0;
+		  }
+		  continue;
+		}
+
+		// read payload (2 bytes)
+		payload[0] = b;
+		if (HAL_UART_Receive(huart, &payload[1], 1, 10) != HAL_OK) { idx = 0; continue; }
+
+		// read checksum (2 bytes)
+		if (HAL_UART_Receive(huart, &ck_a, 1, 10) != HAL_OK) { idx = 0; continue; }
+		if (HAL_UART_Receive(huart, &ck_b, 1, 10) != HAL_OK) { idx = 0; continue; }
+
+		// validate checksum of ACK packet (class..payload)
+		uint8_t buf[4 + 2]; // 05 01 02 00 + payload
+		memcpy(buf, &preamble[2], 4); // class,id,lenL,lenH
+		buf[4] = payload[0];
+		buf[5] = payload[1];
+
+		uint8_t calc_a, calc_b;
+		ubx_checksum(buf, sizeof(buf), &calc_a, &calc_b);
+		if (calc_a != ck_a || calc_b != ck_b) { idx = 0; continue; } // corrupted ACK
+
+		// check ACK is for our message
+		return (payload[0] == cls && payload[1] == id);
+	}
+	return false;
+}
+
 // Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (RAM only), then switch STM32 UART5 to match.
-static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, uint32_t newBaud) {
+static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef *huart_gps, uint32_t newBaud, uint8_t save) {
 	/* To change the baud rate of the neom9n, must send a complete UBX packet with required details
-	 * as defied by the datasheet (u-blox, pg. 89-91) */
+	 * as defied by (u-blox, pg. 89-91) */
 
 	// UBX-CFG-VALSET packet for 115200 Baud on UART1
 	uint8_t pkt[20]; // header == 4 bytes, payload == 12 bytes,
@@ -431,7 +480,7 @@ static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, u
 	// to save the baud rate change (and any other change made), set byte 1 => 0x07 (save to ram, bbr, and flash layers)
 	// to just test a change but not save, set byte 1 => 0x01 (saves just to ram)
 	pkt[6] = 0x00;       			// Byte 0: set to 0x00 cause datasheet says so
-	pkt[7] = 0x01;      	 		// Byte 1: layers (0x01 = save to RAM only (temp. change for testing purposes))
+	pkt[7] = save;      	 		// Byte 1: layers (0x01 = save to RAM only (temp. change for testing purposes))
 	pkt[8] = 0x00; pkt[9] = 0x00;   // Byte 2-3: 0x00 cause gemini said so
 
 	// Key ID for UART1 on neom9n = 0x40520001 -> little endian: 01 00 52 40
@@ -460,9 +509,15 @@ static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, u
 	__HAL_UART_DISABLE_IT(huart_gps, UART_IT_RXNE);
 	__HAL_UART_DISABLE_IT(huart_gps, UART_IT_IDLE);
 
-	// Send at CURRENT baud (must match current GPS baud -> default == 38400)
+	// Send at CURRENT baud (must match current GPS baud - before changes)
 	if (HAL_UART_Transmit(huart_gps, pkt, pkt_len, 200) != HAL_OK) {
 		return HAL_ERROR;
+	}
+
+	// check that no data corruption occured and the checksum was validated by the gps
+	// Wait for confirmation from GPS at OLD baud
+	if (!ubx_wait_ack(huart_gps, 0x06, 0x8A, 300)) {
+	  return HAL_ERROR; // GPS didn’t accept it, or no ACK seen
 	}
 
 	// Give GPS time to switch UART baud
@@ -472,6 +527,7 @@ static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, u
 	if (HAL_UART_DeInit(huart_gps) != HAL_OK) {
 		return HAL_ERROR;
 	}
+
 	huart_gps->Init.BaudRate = newBaud;
 	if (HAL_UART_Init(huart_gps) != HAL_OK) {
 		return HAL_ERROR;
@@ -490,16 +546,16 @@ static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, u
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
-  /* USER CODE END Error_Handler_Debug */
+void Error_Handler(void) {
+	/* USER CODE BEGIN Error_Handler_Debug */
+	/* User can add his own implementation to report the HAL error return state */
+	__disable_irq();
+	while (1)
+	{
+	}
+	/* USER CODE END Error_Handler_Debug */
 }
+
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
@@ -515,4 +571,5 @@ void assert_failed(uint8_t *file, uint32_t line)
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
+
 #endif /* USE_FULL_ASSERT */

@@ -3,7 +3,7 @@
  *
  *  Created on: Mar 18, 2025
  *      Author: willi
- *      (modified by aisha)
+ *      (modified by aisha, and prithika)
  */
 
 #ifndef INC_NEOM9N_H_
@@ -59,6 +59,7 @@ void NEOM9N_StartRxIT(void);
  */
 void NEOM9N_OnRxEventIT(uint16_t size);
 
+
 /*
  * Non-blocking "getData" for interrupt method:
  * Copies the most recent received chunk into GPSData (null-terminated).
@@ -66,19 +67,5 @@ void NEOM9N_OnRxEventIT(uint16_t size);
  */
 HAL_StatusTypeDef NEOM9N_getDataIT(unsigned char *GPSData, uint16_t maxLen);
 
-//Returns current state of GPS
-
-/*
- * (Polling version) - Existing function (if you keep it in .c)
- * NOTE: This blocks and is not recommended for continuous GPS streams.
- */
-int NEOM9N_getData(unsigned char *GPSData);
-
-int NEOM9N_getTime(float* time, unsigned char* GPSData, int size);
-int NEOM9N_getSpeed(float* speed, unsigned char* GPSData);
-int NEOM9N_getPosition(float* latitude, char* latitudeHemisphere,
-                       float* longitude, char* longitudeHemisphere,
-                       unsigned char* GPSData, int size);
-int NEOM9N_getAltitude(float* altitude, unsigned char* GPSData);
 
 #endif /* INC_NEOM9N_H_ */
