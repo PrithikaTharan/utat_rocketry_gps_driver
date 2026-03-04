@@ -51,11 +51,12 @@ bool rbInit(RingBuffer* rb, uint8_t* storageLocation, size_t size) {
     rb->head = 0;
     rb->tail = 0;
     rb->overflowCount = 0;
+    rb->bufferInit = true;
 
     return true;
 }
 
-// Read up to maxLen bytes into outData. Returns number of bytes read
+// Read up to maxLength bytes into outData. Returns number of bytes read
 size_t rbRead(RingBuffer* rb, uint8_t* outData, size_t maxLength ) {
 	// check for validity of input parameters
     if (!rb || !rb->buffer || !outData || (maxLength == 0)) return 0;

@@ -29,6 +29,7 @@ typedef struct {
     volatile size_t head;  	// write to head
     volatile size_t tail;  	// read from tail
     volatile uint32_t overflowCount; 	// counts bytes dropped due to full buffer
+    bool bufferInit; 		// verify that the buffer has been initalized
 } RingBuffer;
 
 
