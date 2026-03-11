@@ -10,8 +10,8 @@
  *  - provide a clean interface for higher layers (gps_parser)
  *
  * 	Notes:
- * 	- This module does NOT parse NMEA/UBX and should NOT print/log inside ISRs
- * 	- DMA circular buffer alone can work, but a ring buffer adds some extra saftey apperently. also nice if ever
+ * 	- This module does NOT parse NMEA (or UBX binary)
+ * 	- DMA circular buffer alone can work, but a ring buffer adds some extra saftey apperently. also convient if ever
  * 	  switching from dma to inturrupts
  * 	- using UART5 RX with circular DMA
  */
@@ -30,8 +30,8 @@
  *  Structs
  * ----------------------- */
 typedef struct {
-    UART_HandleTypeDef *huart;      // UART used for GPS (e.g., &huart5)
-    RingBuffer *rb;                 // destination ring buffer (already initalized)
+    UART_HandleTypeDef *huart;      // UART used for GPS (&huart5 rn)
+    RingBuffer *rb;                 // ring buffer as main storage (must be already initalized)
 
     uint8_t *dmaBuffer;             // DMA circular RX buffer storage
     size_t   dmaBufferLength;       // length of dmaBuf in bytes

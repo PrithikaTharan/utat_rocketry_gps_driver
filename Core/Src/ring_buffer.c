@@ -93,11 +93,8 @@ size_t rbWrite(RingBuffer* rb, const uint8_t* inData, size_t length){
 
 // returns amount of bytes unread sitting in the buffer
 size_t rbAvailable(const RingBuffer* rb) {
-	/* completly AI (gemini) implementation */
     if (!rb) return 0;
-
-    // The mask automatically handles the wrap-around math
-    return (rb->head - rb->tail) & rb->mask;
+    return (rb->head - rb->tail) & rb->mask;     // The mask automatically handles the wrap-around math
 }
 
 // clear everything in case of error

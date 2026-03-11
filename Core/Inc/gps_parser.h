@@ -31,7 +31,7 @@ typedef struct {
     double lat;				// lattitude
     double lon;				// longitude
     float  alt;				// altitude
-    float  speedMps;		// meters per second. (converted from rmc knots)
+    float  speedMps;		// meters per second. (converted from RMC knots)
     uint8_t satellitesUsed;	// from data sent by GGA
     uint32_t lastUpdateMs;	// feature implemented using HAL_GEtTick() --> can measure navigation rate (hz).
     						// Default navigation rate is set to be 1Hz on neom9n
@@ -42,10 +42,10 @@ typedef struct {
  * Function Declarations
 -----------------------*/
 // init/reset
-void gpsParserInit(GpsNmeaAssembler* a, GpsFix* fix);
+void gpsParserInit(GpsFix* fix);
 
 // feed raw bytes; internally extracts full NMEA sentences and updates fix
-void gpsParserFeed(GpsNmeaAssembler* a, GpsFix* fix, const uint8_t* data, size_t length, uint32_t nowMs);
+void gpsParserFeed(GpsFix* fix, const uint8_t* data, size_t length, uint32_t nowMs);
 
 // getter function if needed for any reason. Copies currentFix in to outFix
 void getFix(const GpsFix* currentFix, GpsFix* outFix);

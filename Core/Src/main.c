@@ -62,7 +62,7 @@ static void MX_GPIO_Init(void);
 static void MX_LPUART1_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
 static void MX_UART5_Init(void);
-static HAL_StatusTypeDef GPS_SwitchBaud_Runtime(UART_HandleTypeDef *huart_gps, uint32_t newBaud);
+static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef *huart_gps, uint32_t newBaud);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -490,7 +490,7 @@ static bool ubx_wait_ack(UART_HandleTypeDef *huart, uint8_t cls, uint8_t id, uin
 	return false;
 }
 
-// Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (RAM only), then switch STM32 UART5 to match.
+// Send UBX-CFG-VALSET to set CFG-UART1-BAUDRATE (currently set up to be temporary change), then switch STM32 UART5 to match.
 static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef *huart_gps, uint32_t newBaud, uint8_t save) {
 	/* To change the baud rate of the neom9n, must send a complete UBX packet with required details
 	 * as defied by (u-blox, pg. 89-91) */
@@ -525,9 +525,8 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef *huart_gps, uint32_t n
 	pkt[18] = ck_a;
 	pkt[19] = ck_b;
 
-	// Note: pkt size is 20 bytes actually (2 sync + 2 class/id + 2 len + 12 payload + 2 cksum)
-	// We'll transmit only 20 bytes.
-	const uint16_t pkt_len = 20;
+
+	const uint16_t pkt_length = 20;
 
 	/* ai generated beneath */
 	// Stop recieving while switching baud rate
@@ -536,7 +535,7 @@ static HAL_StatusTypeDef gpsSwitchBaud(UART_HandleTypeDef *huart_gps, uint32_t n
 	__HAL_UART_DISABLE_IT(huart_gps, UART_IT_IDLE);
 
 	// Send at CURRENT baud (must match current GPS baud - before changes)
-	if (HAL_UART_Transmit(huart_gps, pkt, pkt_len, 200) != HAL_OK) {
+	if (HAL_UART_Transmit(huart_gps, pkt, pkt_length, 200) != HAL_OK) {
 		return HAL_ERROR;
 	}
 

@@ -12,12 +12,6 @@
 #include <string.h>
 
 /* -----------------------
- *  Global Variables
- * ----------------------- */
-static RingBuffer buffer; // static use will initalize all variables in the struct to null/0 I think. useful for gpsUartInit
-static GpsUart gpsUart;
-
-/* -----------------------
  *  Internal Helper Functions
  * ----------------------- */
 // return ring buffer overflow
@@ -25,15 +19,15 @@ static inline uint32_t getBufferOverflow(const GpsUart *gpsUart) {
     return (gpsUart && gpsUart->rb) ? gpsUart->rb->overflowCount : 0;
 }
 
-// Compute (a - b) mod m for size_t, result in [0, m-1]
+// calculate distance between two indices in a circular buffer
 static size_t modDistance(size_t a, size_t b, size_t m) {
     if (a >= b) return a - b;
     return (m - b) + a;
 }
 
 // Harvest bytes from dmaBuffer[oldPos..newPos) into ring buffer, with wrap handling
-static void dataIntoRing(GpsUart *gpsUart, size_t newPos)
-{
+static void dataIntoRing(GpsUart *gpsUart, size_t newPos){
+	// All AI generated, not modified
     if (!gpsUart || !gpsUart->rb || !gpsUart->dmaBuffer || gpsUart->dmaBufferLength == 0)
         return;
 
@@ -169,3 +163,5 @@ size_t gpsUartRead(GpsUart *gpsUart, uint8_t *out, size_t maxLength) {
     if (!gpsUart || !gpsUart->rb || !out || maxLength == 0) return 0;
     return rbRead(gpsUart->rb, out, maxLength);
 }
+
+
