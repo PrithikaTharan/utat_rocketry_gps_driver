@@ -15,7 +15,7 @@
  *  Internal Helper Functions
  * ----------------------- */
 // return ring buffer overflow
-static inline uint32_t getBufferOverflow(const GpsUart *gpsUart) {
+static inline uint32_t getBufferOverflow(const GpsUart* gpsUart) {
     return (gpsUart && gpsUart->rb) ? gpsUart->rb->overflowCount : 0;
 }
 
@@ -26,8 +26,8 @@ static size_t modDistance(size_t a, size_t b, size_t m) {
 }
 
 // Harvest bytes from dmaBuffer[oldPos..newPos) into ring buffer, with wrap handling
-static void dataIntoRing(GpsUart *gpsUart, size_t newPos){
-	// All AI generated, not modified
+static void dataIntoRing(GpsUart* gpsUart, size_t newPos) {
+    // All AI generated, not modified
     if (!gpsUart || !gpsUart->rb || !gpsUart->dmaBuffer || gpsUart->dmaBufferLength == 0)
         return;
 
@@ -53,8 +53,7 @@ static void dataIntoRing(GpsUart *gpsUart, size_t newPos){
         if (written < attempted) {
             gpsUart->rbDropBytes += (attempted - written);
         }
-    }
-    else {
+    } else {
         // Wrapped: [oldPos, len)
         attempted = len - oldPos;
         written = rbWrite(gpsUart->rb, &gpsUart->dmaBuffer[oldPos], attempted);
@@ -78,10 +77,10 @@ static void dataIntoRing(GpsUart *gpsUart, size_t newPos){
 }
 
 // Determine current DMA write position in circular buffer using DMA counter
-static size_t getDmaWritePosition(const GpsUart *gpsUart, uint16_t sizeHint) {
-	// completly ai written code, unmodfied
-	// purpose is to figure out the correct write position cause HAL_UARTEx_RxEventCallback(..., Size) from HAL driver
-	// might not give the right awnser for circular buffers apperently
+static size_t getDmaWritePosition(const GpsUart* gpsUart, uint16_t sizeHint) {
+    // completly ai written code, unmodfied
+    // purpose is to figure out the correct write position cause HAL_UARTEx_RxEventCallback(..., Size) from HAL driver
+    // might not give the right awnser for circular buffers apperently
     if (!gpsUart || !gpsUart->huart || !gpsUart->dmaBufferLength) return 0;
 
     // If HAL linked the RX DMA handle, we can compute the current write index:
@@ -105,10 +104,10 @@ static size_t getDmaWritePosition(const GpsUart *gpsUart, uint16_t sizeHint) {
  *  Core functions
  * ----------------------- */
 // initalize gpsUart struct (must do before everything else)
-bool gpsUartInit(GpsUart *gpsUart, UART_HandleTypeDef *uartAddressPin, RingBuffer *rb, uint8_t *dmaBuffer,
+bool gpsUartInit(GpsUart* gpsUart, UART_HandleTypeDef* uartAddressPin, RingBuffer* rb, uint8_t* dmaBuffer,
                  size_t dmaBufferLength) {
     if (!gpsUart || !uartAddressPin || !rb || !dmaBuffer) return false;
-    if (dmaBufferLength < 2) return false; // ring buffers have to be > 2
+    if (dmaBufferLength < 2) return false;  // ring buffers have to be > 2
 
     gpsUart->huart = uartAddressPin;
     // ensure that the ring buffer has been initlalized before putting it into the gpsUart
@@ -126,8 +125,8 @@ bool gpsUartInit(GpsUart *gpsUart, UART_HandleTypeDef *uartAddressPin, RingBuffe
 }
 
 // run once to start dma data transfer
-HAL_StatusTypeDef gpsUartStartRx(GpsUart *gpsUart) {
-	// if not initalized or soemthing else is wrong with anything in the sturct
+HAL_StatusTypeDef gpsUartStartRx(GpsUart* gpsUart) {
+    // if not initalized or soemthing else is wrong with anything in the sturct
     if (!gpsUart || !gpsUart->huart || !gpsUart->dmaBuffer || gpsUart->dmaBufferLength == 0)
         return HAL_ERROR;
 
@@ -138,7 +137,7 @@ HAL_StatusTypeDef gpsUartStartRx(GpsUart *gpsUart) {
 
     // Start Receive-to-IDLE with DMA into the circular buffer
     HAL_StatusTypeDef st = HAL_UARTEx_ReceiveToIdle_DMA(gpsUart->huart, gpsUart->dmaBuffer,
-                                     	 	 	 	 	 gpsUart->dmaBufferLength);
+                                                        gpsUart->dmaBufferLength);
     if (st != HAL_OK) return st;
 
     // Disable half-transfer interrupts to reduce IRQ load.
@@ -152,16 +151,14 @@ HAL_StatusTypeDef gpsUartStartRx(GpsUart *gpsUart) {
 }
 
 // if data recieved, put into the ring buffer
-void gpsUartOnRxEvent(GpsUart *gpsUart, uint16_t size) {
+void gpsUartOnRxEvent(GpsUart* gpsUart, uint16_t size) {
     if (!gpsUart || !gpsUart->huart) return;
     size_t newPos = getDmaWritePosition(gpsUart, size);  // figure out where the DMA is currently wirting
-    dataIntoRing(gpsUart, newPos); // put new data into the ring buffer.
+    dataIntoRing(gpsUart, newPos);                       // put new data into the ring buffer.
 }
 
 // a wrapper around the ring buffer function rbRead(). returns number of bytes actually read
-size_t gpsUartRead(GpsUart *gpsUart, uint8_t *out, size_t maxLength) {
+size_t gpsUartRead(GpsUart* gpsUart, uint8_t* out, size_t maxLength) {
     if (!gpsUart || !gpsUart->rb || !out || maxLength == 0) return 0;
     return rbRead(gpsUart->rb, out, maxLength);
 }
-
-

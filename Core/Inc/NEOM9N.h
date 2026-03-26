@@ -9,21 +9,22 @@
 #ifndef INC_NEOM9N_H_
 #define INC_NEOM9N_H_
 
-#include "stm32l4xx_hal.h" /*Needed for UART*/
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "stm32l4xx_hal.h" /*Needed for UART*/
 
 /*
- 	Functions:
- 	Initialize device
-	Is the device on?
-	getState (return 0 if ready, enum for other states)
-	getData
-	getPosition
-	getVelocity
-	getAltitude
-	getNumOfSatellites
+    Functions:
+    Initialize device
+    Is the device on?
+    getState (return 0 if ready, enum for other states)
+    getData
+    getPosition
+    getVelocity
+    getAltitude
+    getNumOfSatellites
  */
 
 /*
@@ -36,15 +37,15 @@ extern UART_HandleTypeDef* uartAddress;
  * Interrupt-based RX buffers/flags used by the driver.
  * main.c / HAL callbacks will interact with these through the functions below.
  */
-extern volatile uint8_t  NEOM9N_rxReady;
+extern volatile uint8_t NEOM9N_rxReady;
 extern volatile uint16_t NEOM9N_rxSize;
 
 /* Driver Functions */
 
-//Initializes NEO-M9N, returns 0 if successful, 1 if failed
+// Initializes NEO-M9N, returns 0 if successful, 1 if failed
 int NEOM9N_init(UART_HandleTypeDef* uartAddressPin);
 
-//Checks if the NEO-M9N is connected to the UART line, returns 0 if successful, 1 if failed
+// Checks if the NEO-M9N is connected to the UART line, returns 0 if successful, 1 if failed
 int NEOM9N_CheckConnection();
 
 /*
@@ -59,13 +60,11 @@ void NEOM9N_StartRxIT(void);
  */
 void NEOM9N_OnRxEventIT(uint16_t size);
 
-
 /*
  * Non-blocking "getData" for interrupt method:
  * Copies the most recent received chunk into GPSData (null-terminated).
  * Returns HAL_OK if new data was copied, HAL_BUSY if nothing new yet.
  */
-HAL_StatusTypeDef NEOM9N_getDataIT(unsigned char *GPSData, uint16_t maxLen);
-
+HAL_StatusTypeDef NEOM9N_getDataIT(unsigned char* GPSData, uint16_t maxLen);
 
 #endif /* INC_NEOM9N_H_ */
