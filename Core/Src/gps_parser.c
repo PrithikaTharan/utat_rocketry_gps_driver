@@ -4,19 +4,21 @@
  *  Created on: Mar 3, 2026
  *      Author: prith
  *
- *  AI Generated functions
+ *  Done, needs to be tested
  */
+#include "gps_parser.h"
+
 #include <stdlib.h>
-#include <string.h>
+#include <string.h>  // for memset
 
 /* -----------------------
  *  Structs
  * ----------------------- */
 
 typedef struct {
-    char sentence[nmeaMaxLen];  // holds one NMEA sentence
+    char sentence[NMEA_MAX_LEN];  // holds one NMEA sentence
     uint16_t length;
-    bool inSentence;
+    bool in_sentence;
 } GpsNmeaAssembler;
 
 static GpsNmeaAssembler assembler;
@@ -25,9 +27,9 @@ static GpsNmeaAssembler assembler;
  *  Internal Helper Functions
  * ----------------------- */
 // NMEA sends lat/lon in degrees + minutes (ddmm.mmmm). This converts to decimalDegrees
-static double DegreeMinutesToDecimalDegrees(double DegreeMinutes, char hemisphere) {
-    int degrees = (int)(DegreeMinutes / 100.0);
-    double minutes = DegreeMinutes - ((double)degrees * 100.0);
+static double degree_minutes_to_decimal_degrees(double degree_minutes, char hemisphere) {
+    int degrees = (int)(degree_minutes / 100.0);
+    double minutes = degree_minutes - ((double)degrees * 100.0);
     double decimal = degrees + (minutes / 60.0);
 
     if (hemisphere == 'S' || hemisphere == 'W')
@@ -37,7 +39,7 @@ static double DegreeMinutesToDecimalDegrees(double DegreeMinutes, char hemispher
 }
 
 // turn ASCII hexadecimal character into its integer equivalent (0 to 15)
-static uint8_t hexToNibble(char c) {
+static uint8_t hex_to_nibble(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'A' && c <= 'F') return 10 + (c - 'A');  // subtract A(base16) add 10(base10)
     if (c >= 'a' && c <= 'f') return 10 + (c - 'a');  // incase ascii character is in lowercase
@@ -45,7 +47,7 @@ static uint8_t hexToNibble(char c) {
 }
 
 // Validate NMEA checksum
-static bool nmeaChecksumValid(const char* sentence) {
+static bool nmea_checksum_valid(const char* sentence) {
     // taken from: https://forum.arduino.cc/t/nmea-checksums-explained/1046083
     if (!sentence || sentence[0] != '$')
         return false;
@@ -59,8 +61,8 @@ static bool nmeaChecksumValid(const char* sentence) {
         calc ^= (uint8_t)(*p);
     }
 
-    uint8_t high = hexToNibble(star[1]);
-    uint8_t low = hexToNibble(star[2]);
+    uint8_t high = hex_to_nibble(star[1]);
+    uint8_t low = hex_to_nibble(star[2]);
     if (high == 0xFF || low == 0xFF)
         return false;
 
@@ -69,25 +71,25 @@ static bool nmeaChecksumValid(const char* sentence) {
 }
 
 // parse rmc nmea string
-static void parseRmc(GpsFix* fix, char* sentence /*rmc string*/, uint32_t nowMs /*timestamp from when message arrived*/) {
-    int field = 0;                        // represents each piece of the rmc string
-    char* token = strtok(sentence, ",");  // create a pointer to first item in the rmc string
+static void parse_rmc(ParserStats* debugger, GpsFix* fix, char* rmc_string, uint32_t message_timestamp) {
+    int field = 0;                          // represents each piece of the rmc string
+    char* token = strtok(rmc_string, ",");  // create a pointer to first item in the rmc string
 
     // local buffers to hold info
-    char latStr[20] = {0};
-    char lonStr[20] = {0};
-    char speedStr[20] = {0};
-    char latHem = 0;
-    char lonHem = 0;
-    char status = 'V';  // must be A to confirm state is valid (V means data not valid
+    char lat_str[20] = {0};
+    char lon_str[20] = {0};
+    char speed_str[20] = {0};
+    char lat_hem = 0;
+    char lon_hem = 0;
+    char status = 'V';  //  (A == data valid) (V == data not valid)
 
     while (token) {
         if (field == 2) status = token[0];  // if field == 2, at the 3rd part of the rmc string, this represents status
-        if (field == 3) strncpy(latStr, token, sizeof(latStr) - 1);
-        if (field == 4) latHem = token[0];
-        if (field == 5) strncpy(lonStr, token, sizeof(lonStr) - 1);
-        if (field == 6) lonHem = token[0];
-        if (field == 7) strncpy(speedStr, token, sizeof(speedStr) - 1);
+        if (field == 3) strncpy(lat_str, token, sizeof(lat_str) - 1);
+        if (field == 4) lat_hem = token[0];
+        if (field == 5) strncpy(lon_str, token, sizeof(lon_str) - 1);
+        if (field == 6) lon_hem = token[0];
+        if (field == 7) strncpy(speed_str, token, sizeof(speed_str) - 1);
 
         token = strtok(NULL, ",");  // move to the next token in sentence
         field++;
@@ -98,110 +100,131 @@ static void parseRmc(GpsFix* fix, char* sentence /*rmc string*/, uint32_t nowMs 
         return;
     }
 
-    if (latStr[0] && lonStr[0]) {       // make sure lat and lon are non empty
-        double latNmea = atof(latStr);  // convert string from nmea to float
-        double lonNmea = atof(lonStr);
+    // if lat and lon are non empty, start storing stuff
+    if (lat_str[0] && lon_str[0]) {
+        double lat_nmea = atof(lat_str);  // convert string from nmea to float
+        double lon_nmea = atof(lon_str);
 
-        fix->lat = DegreeMinutesToDecimalDegrees(latNmea, latHem);
-        fix->lon = DegreeMinutesToDecimalDegrees(lonNmea, lonHem);
+        fix->lat = degree_minutes_to_decimal_degrees(lat_nmea, lat_hem);
+        fix->lon = degree_minutes_to_decimal_degrees(lon_nmea, lon_hem);
 
-        float speedKnots = (float)atof(speedStr);
-        fix->speedMps = speedKnots * 0.514444f;  // cause 1 knot = 0.514444 m/s
+        float speed_knots = (float)atof(speed_str);
+        fix->speed_mps = speed_knots * 0.514444f;  // cause 1 knot = 0.514444 m/s
 
         fix->valid = true;
-        fix->lastUpdateMs = nowMs;
+        fix->last_update_ms = message_timestamp;
+        debugger->parsed_rmc_count++;  // successfully parsed
     }
 }
 
 // parse gga nmea string
-static void parseGga(GpsFix* fix, char* sentence, uint32_t nowMs) {
+static void parse_gga(ParserStats* debugger, GpsFix* fix, char* gga_string, uint32_t message_timestamp) {
     // exact same logic as parseRMC function but now with parameters applying to gga strings instead
     int field = 0;
-    char* token = strtok(sentence, ",");
+    char* token = strtok(gga_string, ",");
+    bool parsed_anything = false;  // just to check for a successful parse
 
-    char satsStr[8] = {0};
-    char altStr[20] = {0};
+    char sats_str[8] = {0};
+    char alt_str[20] = {0};
 
     while (token) {
-        if (field == 7) strncpy(satsStr, token, sizeof(satsStr) - 1);
-        if (field == 9) strncpy(altStr, token, sizeof(altStr) - 1);
+        if (field == 7) strncpy(sats_str, token, sizeof(sats_str) - 1);
+        if (field == 9) strncpy(alt_str, token, sizeof(alt_str) - 1);
 
         token = strtok(NULL, ",");
         field++;
     }
 
-    if (satsStr[0]) {
-        int sats = atoi(satsStr);
+    if (sats_str[0]) {
+        int sats = atoi(sats_str);
         if (sats < 0) sats = 0;
         if (sats > 255) sats = 255;
-        fix->satellitesUsed = (uint8_t)sats;
+        fix->satellites_used = (uint8_t)sats;
+        parsed_anything = true;
     }
 
-    if (altStr[0]) {
-        fix->alt = (float)atof(altStr);
-        if (fix->valid)  // don't update timestamp if never had RMC
-            fix->lastUpdateMs = nowMs;
+    if (alt_str[0]) {
+        fix->alt = (float)atof(alt_str);
+        parsed_anything = true;
+
+        if (fix->valid) {
+            fix->last_update_ms = message_timestamp;
+        }
     }
-}
 
-// figure out if rmc or gga and parse apporpriatly
-static void parseSentence(GpsFix* fix, char* sentence, uint32_t nowMs) {
-    if (strstr(sentence, "RMC") == sentence + 3)
-        parseRmc(fix, sentence, nowMs);
-    else if (strstr(sentence, "GGA") == sentence + 3)
-        parseGga(fix, sentence, nowMs);
-}
-
-/* -----------------------
- *  Core Functions
- * ----------------------- */
-// init/reset
-void gpsParserInit(GpsFix* fix) {
-    memset(&assembler, 0, sizeof(assembler));
-    memset(fix, 0, sizeof(*fix));
-    fix->valid = false;
+    if (parsed_anything)
+        debugger->parsed_gga_count++;
 }
 
 // takes raw incoming UART bytes and tries to turn them into complete NMEA sentences, then updates fix
-void gpsParserFeed(GpsFix* fix, const uint8_t* data, size_t length, uint32_t nowMs) {
-    if (!data || length == 0)
+void gps_parser_feed(ParserStats* debugger, GpsFix* fix, const uint8_t* data, size_t length, uint32_t message_timestamp) {
+    if (!data || length == 0)  // check if data was even given
         return;
+
+    debugger->total_bytes_received += length;  // increment
 
     for (size_t i = 0; i < length; i++) {
         char c = (char)data[i];
 
         if (c == '$') {
-            assembler.inSentence = true;
+            assembler.in_sentence = true;
             assembler.length = 0;
         }
 
-        if (!assembler.inSentence)
+        if (!assembler.in_sentence)  // skip those characters till be get to stuff we need in the nmea string
             continue;
 
-        if (assembler.length < (nmeaMaxLen - 1)) {
+        if (assembler.length < (NMEA_MAX_LEN - 1)) {
             assembler.sentence[assembler.length++] = c;
             assembler.sentence[assembler.length] = '\0';
-        }
-        // TO PREVENT OVERFLOW: Abandon current string, wait for the next '$'
-        else {
-            assembler.inSentence = false;
+        } else {  // TO PREVENT OVERFLOW: Abandon current string, wait for the next '$'
+            assembler.in_sentence = false;
             assembler.length = 0;
+            debugger->line_overflow_drops++;
             continue;
         }
 
-        if (c == '\n') {                                        // \r\n is the escape sequence for nmea strings
-            assembler.inSentence = false;                       // end check
-            if (nmeaChecksumValid(assembler.sentence))          // do the checksum and only proceed if validated
-                parseSentence(fix, assembler.sentence, nowMs);  // update the fix struct
-            assembler.length = 0;                               // reset assembler
+        if (c == '\n') {                                                               // \r\n is the escape sequence for nmea strings
+            debugger->sentences_seen++;                                                // new sentence seen!
+            assembler.in_sentence = false;                                             // end check
+            if (nmea_checksum_valid(assembler.sentence))                               // do the checksum and only proceed if validated
+                parse_sentence(debugger, fix, assembler.sentence, message_timestamp);  // update the fix struct
+            else
+                debugger->checksum_failure++;  // checksum failed, increment
+            assembler.length = 0;              // reset assembler
         }
     }
 }
 
+/* -----------------------
+ *  Visible functions
+ * ----------------------- */
+// init/reset
+void gps_parser_init(GpsFix* fix, ParserStats* debugger) {
+    if (!fix || !debugger)
+        return;
+
+    memset(&assembler, 0, sizeof(assembler));
+    memset(fix, 0, sizeof(*fix));
+    memset(debugger, 0, sizeof(*debugger));
+
+    fix->valid = false;
+}
+
+// figure out if rmc or gga and parse apporpriatly
+void parse_sentence(ParserStats* debugger, GpsFix* fix, char* sentence, uint32_t message_timestamp) {
+    if (strstr(sentence, "RMC") == sentence + 3)
+        parse_rmc(debugger, fix, sentence, message_timestamp);
+    else if (strstr(sentence, "GGA") == sentence + 3)
+        parse_gga(debugger, fix, sentence, message_timestamp);
+    else
+        debugger->ignored_sentences++;
+}
+
 // getter function if needed for any reason. Copies currentFix in to outFix
 void getFix(const GpsFix* currentFix, GpsFix* outFix) {
-    if (!currentFix || !outFix) return;
-
+    if (!currentFix || !outFix)
+        return;
     *outFix = *currentFix;
 }
 

@@ -24,7 +24,7 @@
 typedef struct {
     uint8_t* buffer;
     size_t bufferSize;                // capacity of buffer in bytes (for embedded systems, apperantly making this a power of 2 is
-                                      // more efficent?)
+                                      // more efficent)
     size_t mask;                      // mask = size - 1 (used later for the wrap around calculatoins). Storing it in the struct is faster
     volatile size_t head;             // write to head
     volatile size_t tail;             // read from tail
